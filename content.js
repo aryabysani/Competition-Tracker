@@ -336,9 +336,13 @@
     // ── Numeric ID from URL (e.g. 1666628) for matching stored competitions ──
     const urlId = path.match(/(\d{5,})$/)?.[1] || '';
 
+    // ── Only track if the user has registered ────────────────────────────────
+    // Check the page text for Unstop's registration confirmation button/banner.
+    const isRegistered = /you'?ve\s+registered|registered\s+successfully|you\s+are\s+registered/i.test(pageText);
+
     // ── Upsert into storage ───────────────────────────────────────────────────
-    // If we already have a competition whose URL contains this numeric ID, update it.
-    // Otherwise create a new entry keyed by name hash.
+    // Update an existing entry (scraped from /user/registrations) if found.
+    // Only create a new entry if the page confirms the user is registered.
 
     chrome.storage.local.get(['competitions'], result => {
       const existing = result.competitions || [];
@@ -352,6 +356,11 @@
           const stored = (c.name || '').toLowerCase();
           return stored.includes(nameLower.slice(0, 12)) || nameLower.includes(stored.slice(0, 12));
         });
+      }
+
+      if (!match && !isRegistered) {
+        console.log('[Competition Tracker] Detail page: not registered, skipping');
+        return;
       }
 
       const id = match ? match.id : hashString(name);
