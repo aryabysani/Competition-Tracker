@@ -1,15 +1,20 @@
 /**
  * content.js — Competition Tracker
  *
- * Two modes:
+ * Runs only on Unstop competition DETAIL pages.
  *
- * 1. REGISTRATIONS page  (/user/registrations*)
- *    Scrolls to load all cards, parses innerText to find each competition's
- *    name + deadline, stores them.
+ * Behaviour:
+ *   1. Confirms the user is registered for this competition
+ *      (looks for "You've Registered" / "Registered" status text).
+ *   2. Extracts the competition name, host, and ALL rounds with their
+ *      start/end timestamps — preferring __NEXT_DATA__ JSON over DOM text.
+ *   3. Stores everything in chrome.storage.local under the competition's
+ *      numeric URL ID, so the popup can show the next round and the full
+ *      timeline.
  *
- * 2. COMPETITION DETAIL page  (/quiz/*, /competitions/*, /hackathons/*, /p/*, ...)
- *    Reads the current round deadline ("X Hours Left", round timeline, etc.)
- *    and upserts it for the matching competition in storage.
+ * NOTE: there is no longer a "registrations page" mode. The popup now has
+ * a button that simply navigates to /user/registrations — the user opens
+ * each competition they want to track manually.
  */
 
 'use strict';
@@ -17,372 +22,297 @@
 (async function () {
   const path = window.location.pathname;
 
-  const IS_REGISTRATIONS = /\/user\/registrations/i.test(path);
-  const IS_DETAIL_PAGE   = /\/(quiz|competitions|hackathons|p|challenges?|internships?|jobs|scholarships|workshops)\//i.test(path);
-
-  if (!IS_REGISTRATIONS && !IS_DETAIL_PAGE) return;
+  const DETAIL_RE = /\/(quiz|competitions|hackathons|p|challenges?|internships?|jobs|scholarships|workshops|conferences)\//i;
+  if (!DETAIL_RE.test(path)) return;
 
   console.log('[Competition Tracker] Running on', path);
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  await sleep(3500); // wait for Next.js hydration + countdown render
 
-  // ── Shared utilities ──────────────────────────────────────────────────────────
-
-  function hashString(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-    return Math.abs(h).toString(36);
-  }
-
-  function parseDeadline(raw) {
-    if (!raw) return null;
-    const t = raw.trim();
-
-    // For date-only strings (no time component), default to end of day so that
-    // deadlines falling on today aren't incorrectly treated as expired due to
-    // UTC midnight being in the past for IST (+5:30) and other ahead-of-UTC zones.
-    function endOfDay(d) { d.setHours(23, 59, 59, 0); return d; }
-
-    const dmy = t.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{4})/i);
-    if (dmy) { const d = new Date(`${dmy[2]} ${dmy[1]}, ${dmy[3]}`); if (!isNaN(d)) return endOfDay(d); }
-
-    const mdy = t.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})/i);
-    if (mdy) { const d = new Date(`${mdy[1]} ${mdy[2]}, ${mdy[3]}`); if (!isNaN(d)) return endOfDay(d); }
-
-    const iso = t.match(/\d{4}-\d{2}-\d{2}(T[\d:.Z+-]+)?/);
-    if (iso) {
-      const d = new Date(iso[0]);
-      if (!isNaN(d)) return iso[1] ? d : endOfDay(d); // only end-of-day if no time part
-    }
-
-    const dl = t.match(/(\d+)\s*days?\s*left/i);
-    if (dl) { const d = new Date(); d.setDate(d.getDate() + +dl[1]); return d; }
-
-    const hl = t.match(/(\d+)\s*hours?\s*left/i);
-    if (hl) { const d = new Date(); d.setHours(d.getHours() + +hl[1]); return d; }
-
-    const ml = t.match(/(\d+)\s*min(?:utes?)?\s*left/i);
-    if (ml) { const d = new Date(); d.setMinutes(d.getMinutes() + +ml[1]); return d; }
-
-    const fb = new Date(t);
-    return isNaN(fb) ? null : fb;
-  }
-
-  function isJunk(t) {
-    if (!t || t.length < 3 || t.length > 250) return true;
-    if (/@/.test(t))   return true;
-    if (/^(registered|deadline|by[:\s]|you\s*\(|email|notification|completed|pending|ongoing|registration\s*form|sort\s*by|search|my\s*applic|all\b|competitions\b|quizzes\b|hackathons\b|scholarships\b|internships\b|jobs\b|workshops\b|for\s+business|talent|mentor|recruiter)/i.test(t)) return true;
-    if (/^\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(t)) return true;
-    if (/^\d+$/.test(t)) return true;
-    return false;
-  }
-
-  function persist(competitions) {
-    chrome.storage.local.get(['competitions'], result => {
-      const existing = result.competitions || [];
-      const map = new Map(existing.map(c => [c.id, c]));
-      for (const c of competitions) map.set(c.id, c);
-      const merged = Array.from(map.values());
-      chrome.storage.local.set({ competitions: merged, lastSynced: Date.now() }, () => {
-        console.log(`[Competition Tracker] Stored ${merged.length} total`);
-        chrome.runtime.sendMessage({ action: 'scraped', count: competitions.length });
-      });
-    });
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // MODE 1 — REGISTRATIONS PAGE
-  // ════════════════════════════════════════════════════════════════════════════
-
-  if (IS_REGISTRATIONS) {
-    await sleep(3000);
-    console.log('[Competition Tracker] Scrolling to load all cards…');
-
-    let prevH = 0, stable = 0;
-    for (let i = 0; i < 40; i++) {
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-      await sleep(700);
-      const h = document.body.scrollHeight;
-      if (h === prevH) { if (++stable >= 3) break; } else { stable = 0; prevH = h; }
-    }
-    window.scrollTo({ top: 0 });
-    await sleep(600);
-
-    const lines = (document.body.innerText || '')
-      .split('\n').map(l => l.trim()).filter(Boolean);
-
-    console.log('[Competition Tracker] Visible lines:', lines.length);
-
-    // Debug: log every line mentioning "Registered on" or "Deadline"
-    lines.forEach((l, i) => {
-      if (/registered\s+on|deadline/i.test(l))
-        console.log(`  [line ${i}] ${l}`);
-    });
-
-    const competitions = [];
-    const seenNames   = new Set();
-
-    for (let i = 0; i < lines.length; i++) {
-      if (!/^registered\s+on\s*:/i.test(lines[i])) continue;
-
-      // ── Name: collect all non-junk lines above, pick the LONGEST ──
-      // (competition titles are long; team names like "Nexus" are short)
-      const candidates = [];
-      for (let j = i - 1; j >= Math.max(0, i - 8); j--) {
-        if (!isJunk(lines[j])) candidates.push(lines[j]);
-      }
-      const name = candidates.sort((a, b) => b.length - a.length)[0] || '';
-
-      if (!name || seenNames.has(name)) continue;
-
-      // ── Deadline: next "Deadline:" line before the next card ──
-      let deadline = null;
-      for (let k = i + 1; k < Math.min(lines.length, i + 30); k++) {
-        if (k > i + 2 && /^registered\s+on\s*:/i.test(lines[k])) break;
-        const m = lines[k].match(/^deadline\s*:\s*(.+)/i);
-        if (m) { deadline = parseDeadline(m[1].trim()); break; }
-      }
-
-      // Skip if already expired
-      if (deadline && deadline < new Date()) { seenNames.add(name); continue; }
-
-      seenNames.add(name);
-
-      // ── URL: find a link whose href matches known competition path patterns ──
-      let url = window.location.href;
-      for (const a of document.querySelectorAll('a[href]')) {
-        const href = a.getAttribute('href') || '';
-        if (!/\/(quiz|competitions|hackathons|p|challenges?|internships?|jobs|scholarships|workshops)\//.test(href)) continue;
-        const linkText = a.textContent.trim().toLowerCase();
-        const nameWords = name.toLowerCase().split(/\s+/).slice(0, 3).join(' ');
-        if (linkText.includes(nameWords) || href.toLowerCase().includes(nameWords.replace(/\s+/g, '-'))) {
-          url = href.startsWith('http') ? href : `https://unstop.com${href}`;
-          break;
-        }
-      }
-
-      const id = hashString(name);
-
-      competitions.push({
-        id,
-        name:     name.slice(0, 200),
-        host:     '',
-        deadline: deadline ? deadline.toISOString() : null,
-        url,
-        round:    null,
-        site:     'unstop',
-      });
-
-      console.log(`[Competition Tracker] ✓ "${name}" | ${deadline ? deadline.toDateString() : 'no deadline'}`);
-    }
-
-    console.log(`[Competition Tracker] Found ${competitions.length} competitions`);
-    persist(competitions);
+  // ── URL ID (e.g. 1661482) ──────────────────────────────────────────────────
+  const urlId = (path.match(/(\d{5,})(?:\/?$|\?)/) || [])[1] || '';
+  if (!urlId) {
+    console.log('[Competition Tracker] No numeric URL id, aborting');
     return;
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // MODE 2 — COMPETITION DETAIL PAGE
-  // Detects the competition name + current round deadline, then upserts it
-  // into storage (merges with existing entry if already tracked, or creates
-  // a new entry so visiting the page is enough to start tracking it).
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
+  // 1. Try __NEXT_DATA__ first (most reliable — server-rendered JSON)
+  // ════════════════════════════════════════════════════════════════════════
 
-  if (IS_DETAIL_PAGE) {
-    await sleep(4000);  // extra time for Next.js hydration + countdown rendering
+  let extracted = extractFromNextData();
 
-    const pageText = document.body.innerText || '';
-    const lines    = pageText.split('\n').map(l => l.trim()).filter(Boolean);
-    const url      = window.location.href;
+  // ════════════════════════════════════════════════════════════════════════
+  // 2. Fall back to DOM/innerText scraping
+  // ════════════════════════════════════════════════════════════════════════
 
-    // ── Name extraction (priority order) ─────────────────────────────────────
-    // "supervisor_account" and similar junk appear in h1 because Unstop puts
-    // a user-role h1 in the nav. We skip anything that looks like a code token.
+  if (!extracted || !extracted.name) {
+    extracted = extractFromDom();
+  }
 
-    function looksLikeJunkName(t) {
-      if (!t || t.length < 3 || t.length > 200) return true;
-      if (/^[a-z_]+$/.test(t))          return true; // snake_case = UI role token
-      if (/@/.test(t))                   return true; // email
-      if (/^\d+$/.test(t))               return true; // pure number
-      return false;
-    }
+  if (!extracted || !extracted.name) {
+    console.log('[Competition Tracker] Could not extract competition name');
+    return;
+  }
 
-    let name = '';
+  // ── Registration check ────────────────────────────────────────────────────
+  const pageText = document.body.innerText || '';
+  const isRegistered =
+    extracted.isRegistered === true ||
+    /you'?ve\s+registered|registration\s+complete|registered\s+successfully|you\s+are\s+registered/i.test(pageText);
 
-    // Strip only trailing site-suffix separators: " | Unstop", " | ..." or " – ..."
-    // Do NOT strip bare hyphens — they appear inside competition names like "UX-Wars".
-    function stripSiteSuffix(t) {
-      return t
-        .replace(/\s*\|.*$/, '')          // strip " | anything" (pipe separator)
-        .replace(/\s*[–—].*$/, '')         // strip " – anything" (em/en-dash)
-        .replace(/\s*-\s*(unstop|iim|iit|nit|bits|vit|srm|manipal|lpu|amity)\b.*/i, '') // strip "- IIM Rohtak" style suffixes
-        .trim();
-    }
+  // Also accept it if we already track this competition (popup may revisit)
+  const existingMatch = await findExistingByUrlId(urlId);
 
-    // 1. og:title meta tag (most reliable — set by the server for each page)
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) {
-      const t = stripSiteSuffix(ogTitle.getAttribute('content') || '');
-      if (!looksLikeJunkName(t)) name = t;
-    }
+  if (!isRegistered && !existingMatch) {
+    console.log('[Competition Tracker] Not registered — skipping', extracted.name);
+    return;
+  }
 
-    // 2. document.title
-    if (!name) {
-      const t = stripSiteSuffix(document.title);
-      if (!looksLikeJunkName(t)) name = t;
-    }
+  // ── Round filter: only future or currently-open rounds ────────────────────
+  const now = Date.now();
+  const allRounds = (extracted.rounds || [])
+    .map(r => ({
+      name:  String(r.name || '').slice(0, 120),
+      start: r.start ? new Date(r.start).toISOString() : null,
+      end:   r.end   ? new Date(r.end).toISOString()   : null,
+    }))
+    .filter(r => r.end && !isNaN(new Date(r.end)))
+    .sort((a, b) => new Date(a.end) - new Date(b.end));
 
-    // 3. All h1/h2/h3 — pick the longest that isn't junk
-    if (!name) {
-      const headings = [...document.querySelectorAll('h1,h2,h3')];
-      const candidates = headings
-        .map(h => h.textContent.trim())
-        .filter(t => !looksLikeJunkName(t))
-        .sort((a, b) => b.length - a.length);
-      if (candidates[0]) name = candidates[0];
-    }
+  // Pick the next upcoming round (end > now)
+  const nextRound = allRounds.find(r => new Date(r.end).getTime() > now) || null;
 
-    // 4. URL slug fallback: /competitions/nexus-iit-kanpur-1666628 → "Nexus Iit Kanpur"
-    if (!name) {
-      const slug = path.split('/').pop()           // "nexus-iit-kanpur-1666628"
-        .replace(/-?\d{5,}$/, '')                  // strip trailing numeric ID
-        .replace(/-/g, ' ').trim();
-      name = slug.replace(/\b\w/g, c => c.toUpperCase()); // Title Case
-    }
+  if (!nextRound) {
+    console.log('[Competition Tracker] No upcoming rounds for', extracted.name);
+    // Still store basic info so the popup knows about it
+  }
 
-    if (!name || name.length < 3) {
-      console.log('[Competition Tracker] Detail page: could not determine name, aborting');
-      return;
-    }
+  const comp = {
+    id:        urlId,
+    name:      extracted.name.slice(0, 200),
+    host:      (extracted.host || '').slice(0, 120),
+    url:       window.location.href.split('?')[0],
+    rounds:    allRounds,
+    nextRound: nextRound,                    // convenience field for popup
+    deadline:  nextRound ? nextRound.end : null,
+    site:      'unstop',
+    updatedAt: now,
+  };
 
-    console.log('[Competition Tracker] Detail page name:', name);
+  // ── Persist (upsert by id) ────────────────────────────────────────────────
+  chrome.storage.local.get(['competitions'], result => {
+    const existing = result.competitions || [];
+    const map = new Map(existing.map(c => [c.id, c]));
+    map.set(comp.id, comp);
+    const merged = Array.from(map.values());
 
-    // ── Deadline extraction ───────────────────────────────────────────────────
-    // Also handles Unstop's "10 Apr 26" (2-digit year) format.
+    chrome.storage.local.set({ competitions: merged, lastSynced: now }, () => {
+      console.log(`[Competition Tracker] ✓ Stored "${comp.name}" with ${allRounds.length} round(s)`);
+      chrome.runtime.sendMessage({ action: 'scraped', count: 1 });
+    });
+  });
 
-    function parseDeadlineExtended(raw) {
-      if (!raw) return null;
-      const t = raw.trim();
+  // ════════════════════════════════════════════════════════════════════════
+  // ─── Helpers ────────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
 
-      // "10 Apr 26, 12:01 AM IST"  — 2-digit year
-      const dmy2 = t.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{2})(?!\d)/i);
-      if (dmy2) {
-        const year = 2000 + parseInt(dmy2[3], 10);
-        const d = new Date(`${dmy2[2]} ${dmy2[1]}, ${year}`);
-        if (!isNaN(d)) return d;
-      }
-
-      return parseDeadline(raw); // fall back to the shared parser
-    }
-
-    let deadline = null;
-    const now = new Date();
-
-    // 1. "X Hours Left" / "X Days Left" banners
-    // Unstop often splits the number and "Hours Left" into separate <span>s,
-    // so we also scan pairs of adjacent lines joined together.
-    const bannerRe = /\d+\s*(hours?|days?|min(?:utes?)?)\s*left/i;
-    for (let i = 0; i < lines.length; i++) {
-      // Check single line, then joined with next line (handles split spans)
-      const candidates = [lines[i]];
-      if (i + 1 < lines.length) candidates.push(lines[i] + ' ' + lines[i + 1]);
-      if (i + 2 < lines.length) candidates.push(lines[i] + ' ' + lines[i + 1] + ' ' + lines[i + 2]);
-
-      for (const cand of candidates) {
-        if (bannerRe.test(cand)) {
-          deadline = parseDeadline(cand);
-          if (deadline && deadline > now) { console.log('[CT] Deadline from banner:', cand); break; }
-          deadline = null;
-        }
-      }
-      if (deadline) break;
-    }
-
-    // 2. Lines explicitly labelled as a deadline
-    if (!deadline) {
-      for (const line of lines) {
-        const m = line.match(/(?:deadline|last\s*date|submit\s*by|closes?)\s*[:\-–]\s*(.+)/i);
-        if (!m) continue;
-        const d = parseDeadlineExtended(m[1]);
-        if (d && d > now) { deadline = d; console.log('[CT] Deadline from label:', line); break; }
-      }
-    }
-
-    // 3. Date strings near "registration" / "round" / "submission" keywords
-    if (!deadline) {
-      for (let i = 0; i < lines.length; i++) {
-        if (!/registration|round|submission|stage|phase/i.test(lines[i])) continue;
-        for (let k = i; k <= Math.min(lines.length - 1, i + 4); k++) {
-          const d = parseDeadlineExtended(lines[k]);
-          if (d && d > now) { deadline = d; console.log('[CT] Deadline from context:', lines[k]); break; }
-        }
-        if (deadline) break;
-      }
-    }
-
-    if (!deadline) {
-      console.log('[Competition Tracker] Detail page: no upcoming deadline found');
-      return;
-    }
-
-    // ── Round info ────────────────────────────────────────────────────────────
-    let round = null;
-    for (const line of lines) {
-      if (/round\s*\d+|submission\s*round|qualifying|semi.?final|grand\s*final/i.test(line) && line.length < 80) {
-        round = line; break;
-      }
-    }
-
-    // ── Numeric ID from URL (e.g. 1666628) for matching stored competitions ──
-    const urlId = path.match(/(\d{5,})$/)?.[1] || '';
-
-    // ── Only track if the user has registered ────────────────────────────────
-    // Check the page text for Unstop's registration confirmation button/banner.
-    const isRegistered = /you'?ve\s+registered|registered\s+successfully|you\s+are\s+registered/i.test(pageText);
-
-    // ── Upsert into storage ───────────────────────────────────────────────────
-    // Update an existing entry (scraped from /user/registrations) if found.
-    // Only create a new entry if the page confirms the user is registered.
-
-    chrome.storage.local.get(['competitions'], result => {
-      const existing = result.competitions || [];
-
-      // Try to find a match by URL ID or name similarity
-      let match = null;
-      if (urlId) match = existing.find(c => c.url && c.url.includes(urlId));
-      if (!match) {
-        const nameLower = name.toLowerCase();
-        match = existing.find(c => {
-          const stored = (c.name || '').toLowerCase();
-          return stored.includes(nameLower.slice(0, 12)) || nameLower.includes(stored.slice(0, 12));
-        });
-      }
-
-      if (!match && !isRegistered) {
-        console.log('[Competition Tracker] Detail page: not registered, skipping');
-        return;
-      }
-
-      const id = match ? match.id : hashString(name);
-
-      const comp = {
-        ...(match || {}),          // keep any existing fields (host, etc.)
-        id,
-        name:     name.slice(0, 200),
-        deadline: deadline.toISOString(),
-        url,
-        round:    round || (match?.round || null),
-        site:     'unstop',
-      };
-
-      const map = new Map(existing.map(c => [c.id, c]));
-      map.set(id, comp);
-      const merged = Array.from(map.values());
-
-      chrome.storage.local.set({ competitions: merged, lastSynced: Date.now() }, () => {
-        console.log(`[Competition Tracker] Detail page stored: "${name}" → ${deadline.toDateString()}`);
-        chrome.runtime.sendMessage({ action: 'scraped', count: 1 });
+  function findExistingByUrlId(id) {
+    return new Promise(resolve => {
+      chrome.storage.local.get(['competitions'], r => {
+        const list = r.competitions || [];
+        resolve(list.find(c => c.id === id) || null);
       });
     });
+  }
+
+  // ── __NEXT_DATA__ extraction ──────────────────────────────────────────────
+  // Walks the JSON tree looking for the opportunity object that matches the
+  // current URL id, then pulls out title, host, and any rounds/stages array.
+
+  function extractFromNextData() {
+    const el = document.querySelector('#__NEXT_DATA__');
+    if (!el) return null;
+
+    let root;
+    try { root = JSON.parse(el.textContent); }
+    catch (e) { console.warn('[Competition Tracker] __NEXT_DATA__ parse failed', e); return null; }
+
+    const targetId = parseInt(urlId, 10);
+    let opportunity = null;
+
+    // DFS for an object whose id matches the URL id and which looks like an opportunity
+    (function walk(node) {
+      if (opportunity || !node || typeof node !== 'object') return;
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      if (node.id === targetId && typeof node.title === 'string') {
+        opportunity = node;
+        return;
+      }
+      for (const v of Object.values(node)) walk(v);
+    })(root);
+
+    if (!opportunity) return null;
+
+    // ── Rounds: look for any nested array of objects that have date-like keys
+    const rounds = [];
+    const ROUND_NAME_KEYS = ['name', 'title', 'round_name', 'roundName', 'stage_name', 'stageName', 'phase_name'];
+    const START_KEYS      = ['start_dt', 'startDt', 'start_date', 'startDate', 'start_time', 'startTime', 'starts_at', 'from_date'];
+    const END_KEYS        = ['end_dt',   'endDt',   'end_date',   'endDate',   'end_time',   'endTime',   'ends_at',   'to_date', 'last_date', 'lastDate', 'deadline'];
+
+    function pick(obj, keys) {
+      for (const k of keys) if (obj[k] != null && obj[k] !== '') return obj[k];
+      return null;
+    }
+
+    (function findRounds(node) {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        // Is this an array of round-like objects?
+        const looksLikeRounds = node.length > 0 && node.every(item =>
+          item && typeof item === 'object' && !Array.isArray(item) &&
+          (pick(item, START_KEYS) || pick(item, END_KEYS))
+        );
+        if (looksLikeRounds) {
+          for (const item of node) {
+            const end = pick(item, END_KEYS);
+            if (!end) continue;
+            rounds.push({
+              name:  pick(item, ROUND_NAME_KEYS) || `Round ${rounds.length + 1}`,
+              start: pick(item, START_KEYS),
+              end,
+            });
+          }
+        }
+        node.forEach(findRounds);
+      } else {
+        Object.values(node).forEach(findRounds);
+      }
+    })(opportunity);
+
+    // Fallback: derive a single "round" from end_date / end_regn_dt
+    if (rounds.length === 0) {
+      const end = opportunity.end_date || opportunity?.regnRequirements?.end_regn_dt;
+      if (end) {
+        rounds.push({
+          name:  'Submission Deadline',
+          start: opportunity?.regnRequirements?.start_regn_dt || null,
+          end,
+        });
+      }
+    }
+
+    // Registration status — Unstop sometimes exposes a flag
+    let isRegistered = null;
+    const regHints = ['is_registered', 'isRegistered', 'user_registered', 'userRegistered', 'registered'];
+    for (const k of regHints) {
+      if (opportunity[k] === true || opportunity[k] === 1) { isRegistered = true; break; }
+    }
+
+    return {
+      name:         opportunity.title || '',
+      host:         opportunity?.organisation?.name || opportunity?.organization?.name || '',
+      rounds,
+      isRegistered,
+    };
+  }
+
+  // ── DOM/innerText fallback ────────────────────────────────────────────────
+  // Used when __NEXT_DATA__ is missing or doesn't contain a matching opportunity.
+  // Extracts: name from og:title or h1, rounds from "Stages & Timeline" text.
+
+  function extractFromDom() {
+    // Name
+    let name = '';
+    const og = document.querySelector('meta[property="og:title"]');
+    if (og) name = stripSiteSuffix(og.getAttribute('content') || '');
+    if (!name) name = stripSiteSuffix(document.title);
+
+    if (!name) {
+      const h = [...document.querySelectorAll('h1,h2')]
+        .map(e => e.textContent.trim())
+        .filter(t => t && t.length >= 3 && t.length <= 200 && !/^[a-z_]+$/.test(t))
+        .sort((a, b) => b.length - a.length);
+      if (h[0]) name = h[0];
+    }
+
+    // Host
+    let host = '';
+    const hostEl = document.querySelector('a[href*="/c/"], .org-name, .organisation-name, .institute');
+    if (hostEl) host = hostEl.textContent.trim().slice(0, 120);
+
+    // Rounds — scan body text for "Round N" / "Stage N" / "Phase N" patterns
+    // and extract any nearby date strings.
+    const rounds = [];
+    const lines = (document.body.innerText || '').split('\n').map(l => l.trim()).filter(Boolean);
+
+    const ROUND_RE = /^(round\s*\d+|stage\s*\d+|phase\s*\d+|(?:semi[\s-]?)?final|grand\s*final|qualif\w*|prelim\w*|submission|registration)[:\s\-–]*(.*)$/i;
+    const DATE_RE  = /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+\d{2,4}(?:[,\s]+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*IST)?)?)/i;
+
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(ROUND_RE);
+      if (!m) continue;
+      const roundName = (m[0].length < 80 ? m[0] : m[1]).trim();
+
+      // Look forward up to 6 lines for a date
+      let end = null;
+      for (let k = i; k <= Math.min(lines.length - 1, i + 6); k++) {
+        const dm = lines[k].match(DATE_RE);
+        if (dm) { end = parseLooseDate(dm[1]); if (end) break; }
+      }
+      if (end) rounds.push({ name: roundName, start: null, end: end.toISOString() });
+    }
+
+    // If we found nothing, look for any "X Hours Left" / "X Days Left" banner
+    if (rounds.length === 0) {
+      for (const line of lines) {
+        const lm = line.match(/(\d+)\s*(hours?|days?|min(?:utes?)?)\s*left/i);
+        if (lm) {
+          const d = new Date();
+          const n = parseInt(lm[1], 10);
+          if (/hour/i.test(lm[2]))      d.setHours(d.getHours() + n);
+          else if (/day/i.test(lm[2]))  d.setDate(d.getDate() + n);
+          else                          d.setMinutes(d.getMinutes() + n);
+          rounds.push({ name: 'Current Round', start: null, end: d.toISOString() });
+          break;
+        }
+      }
+    }
+
+    return { name, host, rounds, isRegistered: null };
+  }
+
+  function stripSiteSuffix(t) {
+    return (t || '')
+      .replace(/\s*\|.*$/, '')
+      .replace(/\s*[–—].*$/, '')
+      .trim();
+  }
+
+  function parseLooseDate(raw) {
+    if (!raw) return null;
+    const t = raw.trim();
+
+    // "10 Apr 2026, 11:30 PM IST" or "10 Apr 26"
+    const m = t.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i);
+    if (m) {
+      const day   = parseInt(m[1], 10);
+      const mon   = m[2];
+      let year    = parseInt(m[3], 10);
+      if (year < 100) year += 2000;
+      let hour    = m[4] ? parseInt(m[4], 10) : 23;
+      const min   = m[5] ? parseInt(m[5], 10) : 59;
+      const ampm  = m[6];
+      if (ampm) {
+        if (/pm/i.test(ampm) && hour < 12) hour += 12;
+        if (/am/i.test(ampm) && hour === 12) hour = 0;
+      }
+      const d = new Date(`${mon} ${day}, ${year} ${hour}:${min}:00`);
+      return isNaN(d) ? null : d;
+    }
+
+    const fb = new Date(t);
+    return isNaN(fb) ? null : fb;
   }
 })();

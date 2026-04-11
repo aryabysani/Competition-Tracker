@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    Competition Tracker — Popup Styles
-   Dark theme · 380 px wide · max 580 px tall
+   Dark theme · 400 px wide · max 600 px tall
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Reset & Base ─────────────────────────────────────────────── */
@@ -11,8 +11,8 @@
 }
 
 body {
-  width: 380px;
-  max-height: 580px;
+  width: 400px;
+  max-height: 600px;
   overflow: hidden;
   background: #0f0f13;
   color: #e8e8ff;
@@ -27,7 +27,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 580px;
+  max-height: 600px;
 }
 
 /* ── Header ───────────────────────────────────────────────────── */
@@ -35,67 +35,81 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid #1e1e2e;
   flex-shrink: 0;
+  gap: 10px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .logo {
-  width: 40px;
-  height: 40px;
-  font-size: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 10px;
+  height: 28px;
+  width: auto;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+  filter: brightness(0) invert(1);  /* make the SVG white to match dark theme */
 }
 
 .title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.3px;
+  white-space: nowrap;
 }
 
 .sync-time {
-  font-size: 11px;
+  font-size: 10px;
   color: #55556a;
-  margin-top: 2px;
+  margin-top: 1px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .active-badge {
-  min-width: 26px;
-  height: 26px;
+  min-width: 24px;
+  height: 24px;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  border-radius: 13px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 7px;
+  padding: 0 6px;
   box-shadow: 0 1px 6px rgba(102, 126, 234, 0.4);
   flex-shrink: 0;
 }
 
-/* ── Sync Hint ────────────────────────────────────────────────── */
-.sync-hint {
+.reg-btn {
+  background: transparent;
+  color: #8080c0;
+  border: 1px solid #2a2a40;
+  border-radius: 6px;
+  padding: 4px 10px;
   font-size: 11px;
-  color: #40405a;
-  padding: 5px 16px;
-  background: #0d0d17;
-  border-bottom: 1px solid #18182a;
-  flex-shrink: 0;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s, color 0.14s, border-color 0.14s;
+}
+
+.reg-btn:hover {
+  background: #1e1e2e;
+  color: #a0a0d8;
+  border-color: #3a3a58;
 }
 
 /* ── Competition List ─────────────────────────────────────────── */
@@ -105,9 +119,8 @@ body {
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 
-  /* Custom scrollbar */
   scrollbar-width: thin;
   scrollbar-color: #2a2a40 transparent;
 }
@@ -118,60 +131,31 @@ body {
 
 /* ── Competition Card ─────────────────────────────────────────── */
 .comp-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px 10px 10px;
   border-radius: 10px;
   border-left: 4px solid transparent;
   background: #1a1a24;
-  cursor: pointer;
-  text-decoration: none;
-  color: inherit;
-  transition: background 0.14s ease, transform 0.1s ease;
-  position: relative;
   overflow: hidden;
-}
-
-.comp-card:hover {
-  transform: translateY(-1px);
+  transition: background 0.14s ease;
 }
 
 /* ── Urgency Variants ─────────────────────────────────────────── */
-.comp-card.urgency-critical {
-  border-left-color: #ff3b3b;
-  background: #1e1014;
-}
-.comp-card.urgency-critical:hover { background: #251319; }
+.comp-card.urgency-critical { border-left-color: #ff3b3b; background: #1e1014; }
+.comp-card.urgency-high     { border-left-color: #ff6b35; background: #1e1510; }
+.comp-card.urgency-medium   { border-left-color: #ffa500; background: #1c1a10; }
+.comp-card.urgency-low      { border-left-color: #ffd700; background: #1c1c10; }
+.comp-card.urgency-normal   { border-left-color: #4caf50; background: #101c12; }
 
-.comp-card.urgency-high {
-  border-left-color: #ff6b35;
-  background: #1e1510;
+/* ── Card Top Row ─────────────────────────────────────────────── */
+.card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 8px 10px;
 }
-.comp-card.urgency-high:hover { background: #251a12; }
 
-.comp-card.urgency-medium {
-  border-left-color: #ffa500;
-  background: #1c1a10;
-}
-.comp-card.urgency-medium:hover { background: #222014; }
-
-.comp-card.urgency-low {
-  border-left-color: #ffd700;
-  background: #1c1c10;
-}
-.comp-card.urgency-low:hover { background: #222214; }
-
-.comp-card.urgency-normal {
-  border-left-color: #4caf50;
-  background: #101c12;
-}
-.comp-card.urgency-normal:hover { background: #142016; }
-
-/* ── Card Left: Info ──────────────────────────────────────────── */
 .card-info {
   flex: 1;
-  min-width: 0; /* allow text truncation */
+  min-width: 0;
 }
 
 .card-name {
@@ -179,7 +163,6 @@ body {
   font-weight: 600;
   color: #e8e8ff;
   line-height: 1.35;
-  /* clamp to 2 lines */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -195,7 +178,7 @@ body {
   text-overflow: ellipsis;
 }
 
-.card-round {
+.card-next-round {
   display: inline-block;
   margin-top: 5px;
   padding: 2px 7px;
@@ -205,9 +188,13 @@ body {
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
-/* ── Card Right: Countdown ────────────────────────────────────── */
+/* ── Countdown (top right) ────────────────────────────────────── */
 .card-countdown {
   flex-shrink: 0;
   text-align: right;
@@ -224,7 +211,6 @@ body {
   line-height: 1.2;
 }
 
-/* Critical countdown pulses red */
 .urgency-critical .countdown-value {
   color: #ff4444;
   animation: pulse-red 1s ease-in-out infinite;
@@ -242,6 +228,122 @@ body {
 .label-medium   { color: #ffa500; }
 .label-low      { color: #ffd700; }
 .label-normal   { color: #4caf50; }
+
+/* ── Card Actions Row ─────────────────────────────────────────── */
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 9px;
+}
+
+.btn-expand {
+  background: transparent;
+  color: #55557a;
+  border: 1px solid #22223a;
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+  white-space: nowrap;
+}
+
+.btn-expand:hover {
+  background: #1e1e2e;
+  color: #8080b0;
+}
+
+.btn-goto {
+  margin-left: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  transition: opacity 0.13s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.btn-goto:hover  { opacity: 0.85; transform: translateY(-1px); }
+.btn-goto:active { transform: translateY(0); opacity: 1; }
+
+/* ── Rounds Timeline ──────────────────────────────────────────── */
+.rounds-panel {
+  border-top: 1px solid #22223a;
+  padding: 8px 12px 10px;
+  display: none;
+}
+
+.rounds-panel.open {
+  display: block;
+}
+
+.rounds-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #45455a;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.round-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid #1a1a28;
+  position: relative;
+}
+
+.round-item:last-child {
+  border-bottom: none;
+}
+
+.round-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #35355a;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.round-item.round-next .round-dot  { background: #667eea; box-shadow: 0 0 5px rgba(102,126,234,0.6); }
+.round-item.round-past .round-dot  { background: #282838; }
+.round-item.round-past .round-name,
+.round-item.round-past .round-dates { color: #3a3a55; }
+
+.round-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.round-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9090c8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.round-item.round-next .round-name { color: #b0b0f8; }
+
+.round-dates {
+  font-size: 10px;
+  color: #45455a;
+  margin-top: 2px;
+  line-height: 1.4;
+}
 
 /* ── Animations ───────────────────────────────────────────────── */
 @keyframes pulse-red {
@@ -310,13 +412,13 @@ body {
   flex-shrink: 0;
 }
 
-.footer-sync,
+.footer-hint,
 .footer-count {
-  font-size: 11px;
-  color: #40405a;
+  font-size: 10px;
+  color: #35354a;
 }
 
 .footer-count {
   font-weight: 500;
-  color: #55557a;
+  color: #45455a;
 }

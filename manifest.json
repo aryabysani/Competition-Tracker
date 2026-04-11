@@ -17,7 +17,6 @@
   "content_scripts": [
     {
       "matches": [
-        "https://unstop.com/user/registrations*",
         "https://unstop.com/quiz/*",
         "https://unstop.com/competitions/*",
         "https://unstop.com/hackathons/*",

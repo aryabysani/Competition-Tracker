@@ -12,16 +12,19 @@
     <!-- ── Header ───────────────────────────────────────────────────────── -->
     <header class="header">
       <div class="header-left">
-        <div class="logo" aria-hidden="true">🏆</div>
+        <img class="logo" src="unstop-logo.svg" alt="Unstop" />
         <div class="header-text">
           <h1 class="title">Competition Tracker</h1>
           <p class="sync-time" id="syncTime">Never synced</p>
         </div>
       </div>
-      <div class="active-badge" id="activeCount" title="Active competitions">0</div>
+      <div class="header-right">
+        <div class="active-badge" id="activeCount" title="Active competitions">0</div>
+        <button class="reg-btn" id="goToRegistrations" title="Open your registrations on Unstop">
+          My Registrations ↗
+        </button>
+      </div>
     </header>
-
-    <p class="sync-hint">💡 Sync: open <strong>unstop.com/user/registrations</strong> while logged in</p>
 
     <!-- ── Competition Cards ─────────────────────────────────────────────── -->
     <div class="competition-list" id="competitionList" role="list"></div>
@@ -30,13 +33,13 @@
     <div class="empty-state" id="emptyState" hidden>
       <div class="empty-icon" aria-hidden="true">📭</div>
       <p class="empty-title">No competitions tracked yet.</p>
-      <p class="empty-subtitle">Visit unstop.com while logged in to auto-sync your registered competitions.</p>
-      <button class="go-btn" id="goToUnstop">Go to Unstop →</button>
+      <p class="empty-subtitle">Visit any competition you have registered for on Unstop — the extension will detect and track it automatically.</p>
+      <button class="go-btn" id="goToUnstop">Browse Unstop →</button>
     </div>
 
     <!-- ── Footer ────────────────────────────────────────────────────────── -->
     <footer class="footer">
-      <span class="footer-sync">🔄 unstop.com/user/registrations</span>
+      <span class="footer-hint">Open a registered competition to track it</span>
       <span class="footer-count" id="footerCount">0 active</span>
     </footer>
 
