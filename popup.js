@@ -122,11 +122,16 @@ function buildCard(comp) {
 
   const card = document.createElement('div');
   card.className      = `comp-card urgency-${urgency}`;
-  card.dataset.compId  = comp.id;
-  card.dataset.deadline = comp.deadline;
+  card.dataset.compId       = comp.id;
+  card.dataset.deadline     = comp.deadline;
+  card.dataset.countingToStart = String(isCountingToStart);
 
-  // Next round name (from comp.nextRound or fallback)
+  // Next round name + whether countdown is to start or end
   const nextRoundName = comp.nextRound?.name || '';
+  const isCountingToStart =
+    comp.nextRound?.start &&
+    new Date(comp.nextRound.start).getTime() > Date.now();
+  const countdownPrefix = isCountingToStart ? 'Starts in' : 'Ends in';
   const nextRoundHtml = nextRoundName
     ? `<span class="card-next-round" title="${escHtml(nextRoundName)}">${escHtml(nextRoundName)}</span>`
     : '';
@@ -153,6 +158,7 @@ function buildCard(comp) {
         ${nextRoundHtml}
       </div>
       <div class="card-countdown">
+        <div class="countdown-prefix">${countdownPrefix}</div>
         <div class="countdown-value">${formatCountdown(msLeft)}</div>
         <div class="countdown-label ${label.cls}">${label.text}</div>
       </div>
@@ -258,6 +264,8 @@ function tick() {
 
     const valEl = card.querySelector('.countdown-value');
     if (valEl) valEl.textContent = formatCountdown(msLeft);
+    const prefEl = card.querySelector('.countdown-prefix');
+    if (prefEl) prefEl.textContent = card.dataset.countingToStart === 'true' ? 'Starts in' : 'Ends in';
 
     const cls = `urgency-${urgency}`;
     if (!card.classList.contains(cls)) {
@@ -294,13 +302,52 @@ function escHtml(str) {
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────
+document.getElementById('forceRead').addEventListener('click', async () => {
+  const btn = document.getElementById('forceRead');
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const url   = tab?.url || '';
+  const DETAIL_RE = /unstop\.com\/(quiz|competitions|hackathons|p|challenges?|internships?|jobs|scholarships|workshops|conferences)\//i;
+
+  if (!DETAIL_RE.test(url)) {
+    btn.title = 'Navigate to a competition page first';
+    btn.style.color = '#ff6b35';
+    setTimeout(() => { btn.style.color = ''; btn.title = 'Re-read the current competition page'; }, 2000);
+    return;
+  }
+
+  btn.classList.add('spinning');
+  btn.disabled = true;
+
+  // Inject content.js into the active tab
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+
+  // Wait for storage update (content.js will write within ~4s)
+  const listener = changes => {
+    if (changes.competitions || changes.lastSynced) {
+      chrome.storage.onChanged.removeListener(listener);
+      btn.classList.remove('spinning');
+      btn.disabled = false;
+      init(); // re-render popup with new data
+    }
+  };
+  chrome.storage.onChanged.addListener(listener);
+
+  // Fallback: give up after 8s
+  setTimeout(() => {
+    chrome.storage.onChanged.removeListener(listener);
+    btn.classList.remove('spinning');
+    btn.disabled = false;
+  }, 8000);
+});
+
 document.getElementById('goToRegistrations').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://unstop.com/user/registrations' });
+  chrome.tabs.create({ url: 'https://unstop.com/user/registrations/all/all' });
   window.close();
 });
 
 document.getElementById('goToUnstop').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://unstop.com' });
+  chrome.tabs.create({ url: 'https://unstop.com/user/registrations/all/all' });
   window.close();
 });
 

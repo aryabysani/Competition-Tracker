@@ -8,7 +8,8 @@
     "storage",
     "alarms",
     "notifications",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "https://unstop.com/*"

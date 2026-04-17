@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:unstop.com)",
+      "Read(//c/Users/aryab/Documents/portfolio/**)"
+    ]
+  }
+}
