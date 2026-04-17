@@ -9,7 +9,6 @@
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const HR = 3_600_000;
-const DETAIL_RE = /unstop\.com\/(quiz|competitions|hackathons|p|challenges?|internships?|jobs|scholarships|workshops|conferences)\//i;
 
 // ─── Screen Router ────────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -59,9 +58,6 @@ function bindOnboarding() {
 let tickInterval = null;
 
 function bindMain() {
-  // Sync button
-  document.getElementById('syncBtn').addEventListener('click', handleSync);
-
   // Add New button
   document.getElementById('addNewBtn').addEventListener('click', () => {
     showScreen('screen-add');
@@ -81,63 +77,6 @@ function bindMain() {
       });
     }
   });
-}
-
-// ── Sync ──────────────────────────────────────────────────────────────────────
-async function handleSync() {
-  const btn = document.getElementById('syncBtn');
-  const msgEl = document.getElementById('syncMsg');
-
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const url = tab?.url || '';
-
-  if (!DETAIL_RE.test(url)) {
-    setMsg(msgEl,
-      !url.includes('unstop.com')
-        ? 'Please navigate to unstop.com first, then click Sync.'
-        : 'Navigate to a specific competition page on Unstop, then click Sync.',
-      'error'
-    );
-    return;
-  }
-
-  btn.classList.add('syncing');
-  document.querySelector('.sync-label').textContent = 'Reading page…';
-  setMsg(msgEl, 'Extracting competition details…', '');
-
-  try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-  } catch (e) {
-    btn.classList.remove('syncing');
-    document.querySelector('.sync-label').textContent = 'Sync from Unstop';
-    setMsg(msgEl, 'Could not inject script. Try reloading the page.', 'error');
-    return;
-  }
-
-  // Wait for storage update (content.js writes within ~4s)
-  const timeout = setTimeout(() => {
-    btn.classList.remove('syncing');
-    document.querySelector('.sync-label').textContent = 'Sync from Unstop';
-    setMsg(msgEl, 'Timed out — make sure you are registered for this competition.', 'error');
-  }, 9000);
-
-  const listener = (changes, area) => {
-    if (area !== 'local') return;
-    if (changes.competitions || changes.lastSynced) {
-      clearTimeout(timeout);
-      chrome.storage.onChanged.removeListener(listener);
-      btn.classList.remove('syncing');
-      document.querySelector('.sync-label').textContent = 'Sync from Unstop';
-      setMsg(msgEl, '✓ Competition synced!', 'success');
-      setTimeout(() => setMsg(msgEl, '', ''), 3000);
-    }
-  };
-  chrome.storage.onChanged.addListener(listener);
-}
-
-function setMsg(el, text, type) {
-  el.textContent = text;
-  el.className = 'sync-msg' + (type ? ' ' + type : '');
 }
 
 // ── Render main list ───────────────────────────────────────────────────────────
@@ -328,6 +267,7 @@ function bindAddForm(returnTo) {
   document.getElementById('deadlines-list').innerHTML = '';
   document.getElementById('formError').textContent = '';
 
+  // Bind buttons synchronously — always works regardless of auto-fill timing
   document.getElementById('backBtn').onclick = () => {
     showScreen(returnTo);
     if (returnTo === 'screen-main') {
@@ -337,42 +277,143 @@ function bindAddForm(returnTo) {
       });
     }
   };
-
   document.getElementById('addDeadlineBtn').onclick = () => addDeadlineRow();
-
   document.getElementById('saveBtn').onclick = saveManualComp;
+
+  // Auto-fill in background — fields update when data arrives, doesn't block buttons
+  autoFillForm();
+}
+
+async function autoFillForm() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url?.includes('unstop.com')) return;
+
+    const cleanUrl = tab.url.split('?')[0];
+    document.getElementById('f-url').value = cleanUrl;
+
+    if (tab.title) {
+      const name = tab.title.replace(/\s*[|–—].*$/, '').trim();
+      if (name && name.length > 2) document.getElementById('f-name').value = name;
+    }
+
+    const urlId = (cleanUrl.match(/(\d{5,})(?:\/?$)/) || [])[1];
+    if (!urlId) return;
+
+    for (const type of ['competition', 'hackathon', 'quiz']) {
+      try {
+        const res = await fetch(`https://unstop.com/api/public/${type}/${urlId}`);
+        if (!res.ok) continue;
+        const json = await res.json();
+        const comp = json?.data?.[type] || json?.data?.competition || json?.data;
+        const host = comp?.organisation?.name || comp?.organization?.name ||
+                     comp?.college?.name || comp?.company?.name || '';
+        if (host) { document.getElementById('f-host').value = host; break; }
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+function buildTimePicker(defaultHour = 12, defaultMin = 0, defaultAmPm = 'AM') {
+  const wrap = document.createElement('div');
+  wrap.className = 'time-picker';
+
+  const hourSel = document.createElement('select');
+  hourSel.className = 'tp-hour';
+  for (let h = 1; h <= 12; h++) {
+    const o = document.createElement('option');
+    o.value = h; o.textContent = h;
+    if (h === defaultHour) o.selected = true;
+    hourSel.appendChild(o);
+  }
+
+  const sep = document.createElement('span');
+  sep.className = 'tp-sep'; sep.textContent = ':';
+
+  const minSel = document.createElement('select');
+  minSel.className = 'tp-min';
+  for (let m = 0; m < 60; m += 5) {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = String(m).padStart(2, '0');
+    if (m === defaultMin) o.selected = true;
+    minSel.appendChild(o);
+  }
+  const o59 = document.createElement('option');
+  o59.value = 59; o59.textContent = '59';
+  if (defaultMin === 59) o59.selected = true;
+  minSel.appendChild(o59);
+
+  const ampmWrap = document.createElement('div');
+  ampmWrap.className = 'ampm-toggle';
+  ['AM', 'PM'].forEach(v => {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'ampm-btn'; btn.textContent = v; btn.dataset.val = v;
+    if (v === defaultAmPm) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      ampmWrap.querySelectorAll('.ampm-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+    ampmWrap.appendChild(btn);
+  });
+
+  wrap.appendChild(hourSel); wrap.appendChild(sep);
+  wrap.appendChild(minSel); wrap.appendChild(ampmWrap);
+  return wrap;
+}
+
+function getTimeFrom(timePicker) {
+  let h = parseInt(timePicker.querySelector('.tp-hour').value);
+  const m = parseInt(timePicker.querySelector('.tp-min').value);
+  const ampm = timePicker.querySelector('.ampm-btn.active').dataset.val;
+  if (ampm === 'AM') { if (h === 12) h = 0; }
+  else               { if (h !== 12) h += 12; }
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
 function addDeadlineRow() {
   const list = document.getElementById('deadlines-list');
-
   const entry = document.createElement('div');
   entry.className = 'deadline-entry';
 
+  // Header: round name + remove
+  const headerRow = document.createElement('div');
+  headerRow.className = 'dl-entry-header';
+
   const labelInput = document.createElement('input');
-  labelInput.type = 'text';
-  labelInput.className = 'dl-entry-label';
+  labelInput.type = 'text'; labelInput.className = 'dl-entry-label';
   labelInput.placeholder = 'e.g. Round 1 Submission';
 
-  const dateInput = document.createElement('input');
-  dateInput.type = 'date';
-  dateInput.className = 'dl-entry-date';
-
-  const timeInput = document.createElement('input');
-  timeInput.type = 'time';
-  timeInput.className = 'dl-entry-time';
-  timeInput.value = '23:59';
-
   const removeBtn = document.createElement('button');
-  removeBtn.className = 'dl-entry-remove';
-  removeBtn.textContent = '×';
-  removeBtn.type = 'button';
+  removeBtn.className = 'dl-entry-remove'; removeBtn.textContent = '×'; removeBtn.type = 'button';
   removeBtn.addEventListener('click', () => entry.remove());
 
-  entry.appendChild(labelInput);
-  entry.appendChild(dateInput);
-  entry.appendChild(timeInput);
-  entry.appendChild(removeBtn);
+  headerRow.appendChild(labelInput); headerRow.appendChild(removeBtn);
+
+  // Starts row
+  const startsRow = document.createElement('div');
+  startsRow.className = 'dl-entry-row';
+  const startsLbl = document.createElement('span');
+  startsLbl.className = 'dl-entry-rowlabel';
+  startsLbl.innerHTML = 'Starts <span class="req">*</span>';
+  const startDate = document.createElement('input');
+  startDate.type = 'date'; startDate.className = 'dl-entry-date dl-start-date';
+  const startTP = buildTimePicker(12, 0, 'AM');
+  startTP.classList.add('dl-start-time');
+  startsRow.appendChild(startsLbl); startsRow.appendChild(startDate); startsRow.appendChild(startTP);
+
+  // Ends row
+  const endsRow = document.createElement('div');
+  endsRow.className = 'dl-entry-row';
+  const endsLbl = document.createElement('span');
+  endsLbl.className = 'dl-entry-rowlabel';
+  endsLbl.innerHTML = 'Ends <span class="opt">(opt)</span>';
+  const endDate = document.createElement('input');
+  endDate.type = 'date'; endDate.className = 'dl-entry-date dl-end-date';
+  const endTP = buildTimePicker(11, 59, 'PM');
+  endTP.classList.add('dl-end-time');
+  endsRow.appendChild(endsLbl); endsRow.appendChild(endDate); endsRow.appendChild(endTP);
+
+  entry.appendChild(headerRow); entry.appendChild(startsRow); entry.appendChild(endsRow);
   list.appendChild(entry);
 }
 
@@ -392,17 +433,20 @@ async function saveManualComp() {
   // Collect deadlines
   const deadlines = [];
   document.querySelectorAll('.deadline-entry').forEach(entry => {
-    const label = entry.querySelector('.dl-entry-label').value.trim() || 'Deadline';
-    const date  = entry.querySelector('.dl-entry-date').value;
-    const time  = entry.querySelector('.dl-entry-time').value || '23:59';
-    if (date) {
-      const datetime = new Date(`${date}T${time}`).toISOString();
-      deadlines.push({ label, datetime });
+    const label     = entry.querySelector('.dl-entry-label').value.trim() || 'Deadline';
+    const startDate = entry.querySelector('.dl-start-date').value;
+    const startTime = getTimeFrom(entry.querySelector('.dl-start-time'));
+    const endDate   = entry.querySelector('.dl-end-date').value;
+    const endTime   = endDate ? getTimeFrom(entry.querySelector('.dl-end-time')) : '23:59';
+    if (startDate) {
+      const start = new Date(`${startDate}T${startTime}`).toISOString();
+      const end   = endDate ? new Date(`${endDate}T${endTime}`).toISOString() : null;
+      deadlines.push({ label, start, end });
     }
   });
 
   if (deadlines.length === 0) {
-    errorEl.textContent = 'Add at least one deadline with a date.';
+    errorEl.textContent = 'Add at least one deadline with a start date.';
     return;
   }
 
@@ -431,10 +475,29 @@ async function saveManualComp() {
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Normalise a competition into a flat list of {label, datetime} deadlines.
+// Normalise a competition into a flat list of {label, datetime, prefix?} deadlines.
 function getDeadlines(comp) {
   if (comp.source === 'manual') {
-    return (comp.deadlines || []).filter(d => d.datetime);
+    const now = Date.now();
+    return (comp.deadlines || []).flatMap(d => {
+      // Legacy format: single datetime
+      if (d.datetime) return [{ label: d.label, datetime: d.datetime }];
+
+      const startMs = d.start ? new Date(d.start).getTime() : null;
+      const endMs   = d.end   ? new Date(d.end).getTime()   : null;
+      const items = [];
+
+      if (startMs && startMs > now) {
+        items.push({ label: d.label, datetime: d.start, prefix: 'Starts' });
+        if (endMs && endMs > now) {
+          items.push({ label: d.label, datetime: d.end, prefix: 'Ends' });
+        }
+      } else if (endMs && endMs > now) {
+        items.push({ label: d.label, datetime: d.end, prefix: 'Ends' });
+      }
+
+      return items;
+    });
   }
 
   // Scraped: derive from rounds — use start date when upcoming, else end date

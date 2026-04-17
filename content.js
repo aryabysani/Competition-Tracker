@@ -351,25 +351,30 @@
     const hostEl = document.querySelector('a[href*="/c/"], .org-name, .organisation-name, .institute');
     if (hostEl) host = hostEl.textContent.trim().slice(0, 120);
 
-    const rounds = [];
-    const lines = (document.body.innerText || '').split('\n').map(l => l.trim()).filter(Boolean);
+    // ── Primary: parse "Stages and Timelines" date-range rows ────
+    const rounds = extractFromStagesSection();
 
-    const ROUND_RE = /^(round\s*\d+|stage\s*\d+|phase\s*\d+|(?:semi[\s-]?)?final|grand\s*final|qualif\w*|prelim\w*|submission|registration)[:\s\-–]*(.*)$/i;
-    const DATE_RE  = /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+\d{2,4}(?:[,\s]+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*IST)?)?)/i;
-
-    for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(ROUND_RE);
-      if (!m) continue;
-      const roundName = (m[0].length < 80 ? m[0] : m[1]).trim();
-      let end = null;
-      for (let k = i; k <= Math.min(lines.length - 1, i + 6); k++) {
-        const dm = lines[k].match(DATE_RE);
-        if (dm) { end = parseLooseDate(dm[1]); if (end) break; }
+    // ── Secondary: classic round-keyword + nearby date ───────────
+    if (rounds.length === 0) {
+      const lines = (document.body.innerText || '').split('\n').map(l => l.trim()).filter(Boolean);
+      const ROUND_RE = /^(round\s*\d+|stage\s*\d+|phase\s*\d+|(?:semi[\s-]?)?final|grand\s*final|qualif\w*|prelim\w*|submission|registration)[:\s\-–]*(.*)$/i;
+      const DATE_RE  = /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+\d{2,4}(?:[,\s]+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*IST)?)?)/i;
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(ROUND_RE);
+        if (!m) continue;
+        const roundName = (m[0].length < 80 ? m[0] : m[1]).trim();
+        let end = null;
+        for (let k = i; k <= Math.min(lines.length - 1, i + 6); k++) {
+          const dm = lines[k].match(DATE_RE);
+          if (dm) { end = parseLooseDate(dm[1]); if (end) break; }
+        }
+        if (end) rounds.push({ name: roundName, start: null, end: end.toISOString() });
       }
-      if (end) rounds.push({ name: roundName, start: null, end: end.toISOString() });
     }
 
+    // ── Tertiary: "X hours/days left" anywhere on page ──────────
     if (rounds.length === 0) {
+      const lines = (document.body.innerText || '').split('\n').map(l => l.trim()).filter(Boolean);
       for (const line of lines) {
         const lm = line.match(/(\d+)\s*(hours?|days?|min(?:utes?)?)\s*left/i);
         if (lm) {
@@ -385,6 +390,45 @@
     }
 
     return { name, host, rounds, isRegistered: null, _source: 'dom' };
+  }
+
+  // Parses the "Stages and Timelines" section by finding lines like:
+  //   "18 Apr 26, 12:00 AM IST → 19 Apr 26, 04:00 PM IST"
+  // and pairing each with the card title that follows on subsequent lines.
+  function extractFromStagesSection() {
+    const rounds = [];
+    const lines = (document.body.innerText || '').split('\n').map(l => l.trim()).filter(Boolean);
+
+    const DT = String.raw`\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4},\s*\d{1,2}:\d{2}\s*[AP]M(?:\s+IST)?`;
+    const RANGE_RE = new RegExp(`(${DT})\\s*[→–—-]+\\s*(${DT})`, 'i');
+    const SKIP_RE  = /^\d{1,2}\s+\w{3}|\bstarts?\s+in\b|\bends?\s+in\b|\bon\s+unstop\b|^(started|ended|live|upcoming|closed)$/i;
+
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(RANGE_RE);
+      if (!m) continue;
+
+      const start = parseLooseDate(m[1]);
+      const end   = parseLooseDate(m[2]);
+      if (!end) continue;
+
+      // Scan forward for a round title — skip noise lines
+      let roundName = '';
+      for (let j = i + 1; j <= Math.min(lines.length - 1, i + 6); j++) {
+        const line = lines[j];
+        if (SKIP_RE.test(line) || line.length < 4 || RANGE_RE.test(line)) break;
+        roundName = line.slice(0, 120);
+        break;
+      }
+
+      rounds.push({
+        name:  roundName || `Round ${rounds.length + 1}`,
+        start: start ? start.toISOString() : null,
+        end:   end.toISOString(),
+      });
+    }
+
+    console.log(`[Competition Tracker] DOM stages found: ${rounds.length}`);
+    return rounds;
   }
 
   function stripSiteSuffix(t) {

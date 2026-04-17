@@ -46,15 +46,6 @@
         <div class="active-badge" id="activeCount" title="Active deadlines">0</div>
       </header>
 
-      <!-- Sync bar -->
-      <div class="sync-bar">
-        <button class="btn-sync" id="syncBtn">
-          <span class="sync-icon">↻</span>
-          <span class="sync-label">Sync from Unstop</span>
-        </button>
-        <p class="sync-msg" id="syncMsg"></p>
-      </div>
-
       <!-- Competition groups -->
       <div class="competition-list" id="competitionList" role="list"></div>
 
@@ -62,7 +53,7 @@
       <div class="empty-state" id="emptyState" hidden>
         <div class="empty-icon">📭</div>
         <p class="empty-title">No competitions tracked yet.</p>
-        <p class="empty-subtitle">Open an Unstop competition page you've registered for, then click Sync — or add one manually.</p>
+        <p class="empty-subtitle">Open any Unstop competition you've registered for — it'll be tracked automatically. Or add one manually.</p>
       </div>
 
       <footer class="footer">
@@ -99,9 +90,9 @@
         </div>
 
         <div class="field">
-          <label class="field-label">Deadlines</label>
+          <label class="field-label">Rounds</label>
           <div id="deadlines-list" class="deadlines-list"></div>
-          <button class="btn-add-deadline" id="addDeadlineBtn">+ Add Deadline</button>
+          <button class="btn-add-deadline" id="addDeadlineBtn">+ Add Round</button>
         </div>
       </div>
 
