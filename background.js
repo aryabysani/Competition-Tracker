@@ -21,6 +21,16 @@ chrome.runtime.onStartup.addListener(() => {
   refreshAlarms();
 });
 
+// ─── Storage Change Listener ─────────────────────────────────────────────────
+// Keeps badge + alarms in sync whenever competitions are added or removed.
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.competitions) {
+    refreshAlarms();
+    updateBadge();
+  }
+});
+
 // ─── Message Router ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

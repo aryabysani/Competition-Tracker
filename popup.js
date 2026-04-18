@@ -58,6 +58,16 @@ function bindOnboarding() {
 let tickInterval = null;
 
 function bindMain() {
+  // Quick links
+  document.getElementById('qlUnstop').addEventListener('click', () => {
+    chrome.tabs.create({ url: 'https://unstop.com' });
+    window.close();
+  });
+  document.getElementById('qlRegistrations').addEventListener('click', () => {
+    chrome.tabs.create({ url: 'https://unstop.com/user/registrations/all/all' });
+    window.close();
+  });
+
   // Add New button
   document.getElementById('addNewBtn').addEventListener('click', () => {
     showScreen('screen-add');

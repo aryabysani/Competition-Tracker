@@ -62,14 +62,31 @@
   }
 
   // ── Registration check ────────────────────────────────────────────────────
-  // API may tell us; fall back to page text (wait for hydration if needed)
   let isRegistered = extracted.isRegistered === true;
   if (!isRegistered) {
-    // Wait for page hydration so registration status text is visible
     await sleep(3500);
     const pageText = document.body.innerText || '';
+    // Broad match: any common Unstop registration indicator
     isRegistered =
-      /you'?ve\s+registered|registration\s+complete|registered\s+successfully|you\s+are\s+registered/i.test(pageText);
+      /you'?ve\s+registered|registration\s+complete|registered\s+successfully|you\s+are\s+registered/i.test(pageText) ||
+      /already\s+registered|withdraw\s+registration|withdraw\s+application/i.test(pageText) ||
+      /view\s+submission|your\s+submission|edit\s+submission/i.test(pageText) ||
+      /your\s+team|my\s+team|team\s+details|team\s+name/i.test(pageText) ||
+      /you\s+have\s+applied|application\s+submitted|applied\s+successfully/i.test(pageText);
+
+    // DOM-based check: withdraw / registered buttons are strong signals
+    if (!isRegistered) {
+      const allText = [...document.querySelectorAll('button, a, span, div')]
+        .map(el => el.textContent.trim())
+        .filter(t => t.length > 0 && t.length < 60);
+      isRegistered = allText.some(t =>
+        /^withdraw$/i.test(t) ||
+        /^registered$/i.test(t) ||
+        /withdraw\s+registration/i.test(t) ||
+        /view\s+submission/i.test(t) ||
+        /edit\s+submission/i.test(t)
+      );
+    }
   }
 
   const existingMatch = await findExistingByUrlId(urlId);
@@ -242,8 +259,20 @@
 
     // Registration status (only reliable when user is logged in)
     let isRegistered = null;
-    for (const k of ['is_registered', 'isRegistered', 'user_registered', 'registered']) {
+    for (const k of ['is_registered', 'isRegistered', 'user_registered', 'registered', 'is_applied', 'isApplied']) {
       if (comp[k] === true || comp[k] === 1) { isRegistered = true; break; }
+    }
+    // Check nested userRelation / my_team objects
+    if (!isRegistered) {
+      const rel = comp.userRelation || comp.user_relation || comp.userDetails || comp.user_details;
+      if (rel) {
+        for (const k of ['is_registered', 'isRegistered', 'registered', 'is_applied']) {
+          if (rel[k] === true || rel[k] === 1) { isRegistered = true; break; }
+        }
+      }
+    }
+    if (!isRegistered && (comp.my_team || comp.myTeam || comp.registeredTeam)) {
+      isRegistered = true;
     }
 
     return { name, host, rounds, isRegistered };
@@ -319,8 +348,19 @@
     }
 
     let isRegistered = null;
-    for (const k of ['is_registered', 'isRegistered', 'user_registered', 'registered']) {
+    for (const k of ['is_registered', 'isRegistered', 'user_registered', 'registered', 'is_applied', 'isApplied']) {
       if (opportunity[k] === true || opportunity[k] === 1) { isRegistered = true; break; }
+    }
+    if (!isRegistered) {
+      const rel = opportunity.userRelation || opportunity.user_relation || opportunity.userDetails;
+      if (rel) {
+        for (const k of ['is_registered', 'isRegistered', 'registered', 'is_applied']) {
+          if (rel[k] === true || rel[k] === 1) { isRegistered = true; break; }
+        }
+      }
+    }
+    if (!isRegistered && (opportunity.my_team || opportunity.myTeam || opportunity.registeredTeam)) {
+      isRegistered = true;
     }
 
     return {

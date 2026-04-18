@@ -46,6 +46,12 @@
         <div class="active-badge" id="activeCount" title="Active deadlines">0</div>
       </header>
 
+      <!-- Quick links -->
+      <div class="quick-links">
+        <button class="btn-quicklink" id="qlUnstop">🔗 Go to Unstop</button>
+        <button class="btn-quicklink" id="qlRegistrations">📋 My Registrations</button>
+      </div>
+
       <!-- Competition groups -->
       <div class="competition-list" id="competitionList" role="list"></div>
 
@@ -53,7 +59,7 @@
       <div class="empty-state" id="emptyState" hidden>
         <div class="empty-icon">📭</div>
         <p class="empty-title">No competitions tracked yet.</p>
-        <p class="empty-subtitle">Open any Unstop competition you've registered for — it'll be tracked automatically. Or add one manually.</p>
+        <p class="empty-subtitle">Visit a registered competition page on Unstop to track it, or add one manually.</p>
       </div>
 
       <footer class="footer">
@@ -74,6 +80,9 @@
       </header>
 
       <div class="form-body">
+        <div class="form-tip">
+          💡 Open a competition page on Unstop first — name, organiser &amp; link will auto-fill.
+        </div>
         <div class="field">
           <label class="field-label">Competition Name <span class="req">*</span></label>
           <input class="field-input" id="f-name" type="text" placeholder="e.g. Case Buddy System 2.0" autocomplete="off" />
