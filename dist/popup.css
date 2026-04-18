@@ -1,0 +1,805 @@
+/* ═══════════════════════════════════════════════════════════════
+   Competition Tracker — Apple Design System
+   Liquid Glass · Dark Mode · 400 px
+   ═══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Backgrounds */
+  --bg:            #1c1c1e;
+  --bg-elevated:   #2c2c2e;
+
+  /* Liquid glass surfaces */
+  --glass:         rgba(255, 255, 255, 0.07);
+  --glass-hover:   rgba(255, 255, 255, 0.11);
+  --glass-border:  rgba(255, 255, 255, 0.13);
+  --glass-inset:   rgba(255, 255, 255, 0.06);
+
+  /* Text (Apple's exact dark-mode scale) */
+  --t1: #ffffff;
+  --t2: rgba(235, 235, 245, 0.60);
+  --t3: rgba(235, 235, 245, 0.30);
+  --t4: #8e8e93;
+
+  /* Apple system colors */
+  --blue:   #007aff;
+  --red:    #ff3b30;
+  --green:  #30d158;
+  --orange: #ff9f0a;
+  --yellow: #ffd60a;
+
+  /* Dividers */
+  --div:      rgba(84, 84, 88, 0.65);
+  --div-soft: rgba(84, 84, 88, 0.30);
+
+  /* Radii */
+  --r-card: 16px;
+  --r-btn:  12px;
+  --r-sm:    8px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow:    0 4px 24px rgba(0,0,0,.32), 0 1px 4px rgba(0,0,0,.18);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.18);
+
+  /* Blur */
+  --blur: blur(24px) saturate(180%);
+}
+
+body {
+  width: 400px;
+  max-height: 600px;
+  overflow: hidden;
+  background: var(--bg);
+  /* Subtle color blobs give the glass something to blur against */
+  background-image:
+    radial-gradient(ellipse 60% 40% at 15% 15%, rgba(0,122,255,.10) 0%, transparent 100%),
+    radial-gradient(ellipse 50% 40% at 85% 85%, rgba(48,209,88,.07) 0%, transparent 100%);
+  color: var(--t1);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+               "Helvetica Neue", "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { display: flex; flex-direction: column; height: 100%; max-height: 600px; }
+
+/* ── Screen router ──────────────────────────────────────────────────────── */
+.screen { display: flex; flex-direction: column; height: 100%; }
+.screen[hidden] { display: none !important; }
+
+/* ── Shared: liquid glass bar (header / footer) ─────────────────────────── */
+.glass-bar {
+  background: rgba(28,28,30,.82);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-color: var(--div-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED BUTTONS
+   ═══════════════════════════════════════════════════════════════ */
+
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-btn);
+  padding: 0 20px;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -.2px;
+  cursor: pointer;
+  transition: all .2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-primary:hover  { filter: brightness(.94); }
+.btn-primary:active { transform: scale(.97); filter: brightness(.90); }
+.btn-primary.wide   { width: 100%; }
+
+.btn-secondary {
+  background: var(--glass);
+  color: var(--t1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-btn);
+  padding: 0 20px;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -.2px;
+  cursor: pointer;
+  transition: all .2s ease;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-secondary:hover  { background: var(--glass-hover); }
+.btn-secondary:active { transform: scale(.97); filter: brightness(.90); }
+.btn-secondary.wide   { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════
+   SCREEN 1 — ONBOARDING
+   ═══════════════════════════════════════════════════════════════ */
+
+.ob-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 24px 32px;
+  text-align: center;
+}
+
+/* Logo in a liquid glass rounded-square (iOS app-icon style) */
+.ob-logo {
+  height: 36px;
+  width: auto;
+  filter: brightness(0) invert(1);
+  opacity: .92;
+  margin-bottom: 24px;
+  /* wrap it visually with a glow to replace the container */
+  filter: drop-shadow(0 0 12px rgba(0,122,255,.35)) brightness(0) invert(1);
+}
+
+.ob-headline {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -.6px;
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+
+.ob-sub {
+  font-size: 14px;
+  color: var(--t4);
+  line-height: 1.65;
+  max-width: 280px;
+  margin-bottom: 32px;
+  font-weight: 400;
+}
+
+.ob-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  color: var(--t3);
+  line-height: 1.5;
+}
+
+.ob-divider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.ob-divider::before,
+.ob-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--div-soft);
+}
+.ob-divider span {
+  font-size: 11px;
+  color: var(--t3);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCREEN 2 — MAIN LIST
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Header — frosted glass bar */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  background: rgba(28,28,30,.82);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--div-soft);
+  flex-shrink: 0;
+  gap: 12px;
+}
+.header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.logo {
+  height: 22px;
+  width: auto;
+  flex-shrink: 0;
+  filter: brightness(0) invert(1);
+  opacity: .88;
+}
+
+.header-text { min-width: 0; }
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--t1);
+  letter-spacing: -.3px;
+  white-space: nowrap;
+}
+.sync-time {
+  font-size: 12px;
+  color: var(--t4);
+  margin-top: 1px;
+  font-weight: 400;
+}
+
+/* Count badge */
+.active-badge {
+  min-width: 28px;
+  height: 28px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  flex-shrink: 0;
+  letter-spacing: -.3px;
+}
+
+/* Scrollable competition list */
+.competition-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(84,84,88,.45) transparent;
+}
+.competition-list::-webkit-scrollbar       { width: 4px; }
+.competition-list::-webkit-scrollbar-track { background: transparent; }
+.competition-list::-webkit-scrollbar-thumb { background: rgba(84,84,88,.45); border-radius: 2px; }
+
+/* ── Competition group card — liquid glass ──────────────────── */
+.comp-group {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.09);
+  transition: background .2s ease, box-shadow .2s ease;
+}
+.comp-group:hover {
+  background: var(--glass-hover);
+  box-shadow: 0 6px 32px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+.comp-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  gap: 8px;
+}
+.comp-group-info { flex: 1; min-width: 0; }
+
+.comp-group-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -.2px;
+}
+.comp-group-host {
+  font-size: 12px;
+  color: var(--t4);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+}
+
+.comp-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Open ↗ — tinted glass pill */
+.btn-goto-sm {
+  background: rgba(0,122,255,.14);
+  color: var(--blue);
+  border: 1px solid rgba(0,122,255,.22);
+  border-radius: var(--r-sm);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.btn-goto-sm:hover { background: rgba(0,122,255,.24); transform: scale(.98); }
+
+/* × remove — ghost with red hover */
+.btn-remove {
+  background: transparent;
+  border: 1px solid rgba(84,84,88,.35);
+  border-radius: var(--r-sm);
+  color: var(--t3);
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .2s ease;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.btn-remove:hover {
+  background: rgba(255,59,48,.10);
+  color: var(--red);
+  border-color: rgba(255,59,48,.28);
+}
+
+/* ── Deadline / round rows ──────────────────────────────────── */
+.deadline-rows { border-top: 1px solid var(--div-soft); }
+
+.deadline-row {
+  display: grid;
+  grid-template-columns: 8px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--div-soft);
+  transition: background .15s;
+}
+.deadline-row:last-child { border-bottom: none; }
+.deadline-row:hover { background: rgba(255,255,255,.03); }
+
+/* Urgency dot */
+.dl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(235,235,245,.18);
+  flex-shrink: 0;
+}
+.urgency-critical .dl-dot { background: var(--red);    box-shadow: 0 0 7px rgba(255,59,48,.65); }
+.urgency-high     .dl-dot { background: var(--orange); }
+.urgency-medium   .dl-dot { background: var(--yellow); }
+.urgency-low      .dl-dot { background: var(--green);  }
+.urgency-normal   .dl-dot { background: var(--green);  opacity: .5; }
+
+.dl-label {
+  font-size: 13px;
+  color: var(--t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+}
+
+.dl-countdown { flex-shrink: 0; text-align: right; }
+.dl-prefix {
+  font-size: 10px;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: .35px;
+  font-weight: 500;
+}
+.dl-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.urgency-critical .dl-value { color: var(--red);    animation: pulse-red 1.2s ease-in-out infinite; }
+.urgency-high     .dl-value { color: var(--orange); }
+
+/* Urgency pill badge */
+.dl-badge {
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  letter-spacing: .1px;
+}
+.label-critical { background: rgba(255,59,48,.15);  color: var(--red);    }
+.label-high     { background: rgba(255,159,10,.15); color: var(--orange); }
+.label-medium   { background: rgba(255,214,10,.12); color: var(--yellow); }
+.label-low      { background: rgba(48,209,88,.12);  color: var(--green);  }
+.label-normal   { background: rgba(48,209,88,.08);  color: var(--green);  opacity: .75; }
+
+@keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+/* Empty state */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 24px;
+  text-align: center;
+}
+.empty-icon { font-size: 52px; margin-bottom: 16px; opacity: .45; }
+.empty-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--t2);
+  margin-bottom: 8px;
+  letter-spacing: -.2px;
+}
+.empty-subtitle {
+  font-size: 14px;
+  color: var(--t4);
+  line-height: 1.65;
+  max-width: 280px;
+  font-weight: 400;
+}
+
+/* Footer — frosted glass bar */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(28,28,30,.82);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 1px solid var(--div-soft);
+  flex-shrink: 0;
+}
+
+.btn-add-new {
+  background: rgba(0,122,255,.12);
+  border: 1px solid rgba(0,122,255,.20);
+  border-radius: var(--r-sm);
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all .2s ease;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.btn-add-new:hover { background: rgba(0,122,255,.20); transform: scale(.98); }
+
+.footer-count {
+  font-size: 13px;
+  color: var(--t4);
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCREEN 3 — ADD FORM
+   ═══════════════════════════════════════════════════════════════ */
+
+.form-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  background: rgba(28,28,30,.82);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--div-soft);
+  flex-shrink: 0;
+}
+
+.btn-back {
+  background: transparent;
+  border: none;
+  color: var(--blue);
+  font-size: 15px;
+  font-weight: 400;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 0;
+  flex-shrink: 0;
+  transition: opacity .2s;
+  letter-spacing: -.1px;
+}
+.btn-back:hover { opacity: .65; }
+
+.form-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--t1);
+  letter-spacing: -.3px;
+}
+
+.form-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(84,84,88,.45) transparent;
+}
+.form-body::-webkit-scrollbar       { width: 4px; }
+.form-body::-webkit-scrollbar-track { background: transparent; }
+.form-body::-webkit-scrollbar-thumb { background: rgba(84,84,88,.45); border-radius: 2px; }
+
+/* ── Form fields ──────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t4);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding-left: 4px;
+}
+.req { color: var(--blue); }
+
+.field-input {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+  color: var(--t1);
+  font-size: 15px;
+  font-family: inherit;
+  padding: 11px 13px;
+  outline: none;
+  transition: all .2s ease;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  min-height: 44px;
+}
+.field-input:focus {
+  border-color: var(--blue);
+  background: rgba(0,122,255,.06);
+  box-shadow: 0 0 0 3px rgba(0,122,255,.14);
+}
+.field-input::placeholder { color: var(--t3); }
+
+/* ── Round entries ────────────────────────────────────────────── */
+.deadlines-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* Round entry — liquid glass card */
+.deadline-entry {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.07);
+}
+
+/* Header: round name + × */
+.dl-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px 9px;
+  border-bottom: 1px solid var(--div-soft);
+}
+
+.dl-entry-label {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--t1);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+.dl-entry-label::placeholder { color: var(--t3); font-weight: 400; }
+
+.dl-entry-remove {
+  background: transparent;
+  border: none;
+  color: rgba(255,59,48,.45);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 6px;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.dl-entry-remove:hover { color: var(--red); background: rgba(255,59,48,.10); }
+
+/* Starts / Ends rows */
+.dl-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-bottom: 1px solid var(--div-soft);
+}
+.dl-entry-row:last-child { border-bottom: none; }
+
+.dl-entry-rowlabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t4);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  flex-shrink: 0;
+  width: 46px;
+}
+.opt { color: var(--t3); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 10px; }
+
+.dl-entry-date {
+  flex: 1;
+  min-width: 0;
+  background: var(--glass-inset);
+  border: 1px solid var(--div-soft);
+  border-radius: var(--r-sm);
+  color: var(--t1);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 5px 8px;
+  outline: none;
+  transition: all .2s;
+  color-scheme: dark;
+  height: 30px;
+}
+.dl-entry-date:focus { border-color: var(--blue); background: rgba(0,122,255,.07); }
+
+/* Custom AM/PM time picker */
+.time-picker {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  background: var(--glass-inset);
+  border: 1px solid var(--div-soft);
+  border-radius: var(--r-sm);
+  padding: 3px 6px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.tp-hour, .tp-min {
+  background: transparent;
+  border: none;
+  color: var(--t1);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+}
+.tp-hour { width: 22px; }
+.tp-min  { width: 26px; }
+
+.tp-sep {
+  color: var(--t2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 1px;
+  user-select: none;
+}
+
+.ampm-toggle {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,.07);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-left: 5px;
+  border: 1px solid rgba(255,255,255,.10);
+  height: 22px;
+}
+
+.ampm-btn {
+  background: transparent;
+  border: none;
+  color: var(--t3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 0 6px;
+  height: 100%;
+  cursor: pointer;
+  transition: all .15s;
+  letter-spacing: .3px;
+  line-height: 1;
+}
+.ampm-btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-radius: 5px;
+}
+.ampm-btn:hover:not(.active) { color: var(--t2); }
+
+/* Add Round button — dashed glass */
+.btn-add-deadline {
+  background: var(--glass);
+  border: 1.5px dashed rgba(255,255,255,.14);
+  border-radius: var(--r-sm);
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 11px 12px;
+  cursor: pointer;
+  width: 100%;
+  transition: all .2s ease;
+  min-height: 42px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  letter-spacing: -.1px;
+}
+.btn-add-deadline:hover {
+  background: rgba(0,122,255,.08);
+  border-color: rgba(0,122,255,.28);
+}
+
+/* Form footer — frosted bar */
+.form-footer {
+  padding: 12px 16px 16px;
+  background: rgba(28,28,30,.82);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 1px solid var(--div-soft);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-error {
+  font-size: 13px;
+  color: var(--red);
+  min-height: 16px;
+  text-align: center;
+  font-weight: 400;
+}

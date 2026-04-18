@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Competition Tracker",
+  "version": "1.0",
+  "description": "Track your Unstop competition deadlines with live countdowns and alerts",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://unstop.com/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://unstop.com/quiz/*",
+        "https://unstop.com/competitions/*",
+        "https://unstop.com/hackathons/*",
+        "https://unstop.com/p/*",
+        "https://unstop.com/challenges/*",
+        "https://unstop.com/challenge/*",
+        "https://unstop.com/internship/*",
+        "https://unstop.com/internships/*",
+        "https://unstop.com/jobs/*",
+        "https://unstop.com/scholarships/*",
+        "https://unstop.com/workshops/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Competition Tracker",
+    "default_icon": {
+      "128": "icon128.png"
+    }
+  },
+
+  "icons": {
+    "128": "icon128.png"
+  }
+}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Competition Tracker</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+
+    <!-- ══════════════════════════════════════════════════════════
+         SCREEN 1 — ONBOARDING (first launch only)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="screen-onboarding" class="screen" hidden>
+      <div class="ob-body">
+        <img class="ob-logo" src="unstop-logo.svg" alt="Unstop" />
+        <h1 class="ob-headline">Track Your<br>Competitions</h1>
+        <p class="ob-sub">Get live countdowns and alerts for every round you're registered for.</p>
+
+        <button class="btn-primary wide" id="ob-goto-unstop">🔗 Go to Unstop</button>
+        <div class="ob-hints">
+          <span>① Find new competitions to join</span>
+          <span>② Revisit ones you're already registered for</span>
+        </div>
+
+        <div class="ob-divider"><span>or</span></div>
+
+        <button class="btn-secondary wide" id="ob-add-manual">➕ Add Competition Manually</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SCREEN 2 — MAIN LIST
+         ══════════════════════════════════════════════════════════ -->
+    <div id="screen-main" class="screen" hidden>
+
+      <header class="header">
+        <div class="header-left">
+          <img class="logo" src="unstop-logo.svg" alt="Unstop" />
+          <div class="header-text">
+            <h1 class="title">Competition Tracker</h1>
+            <p class="sync-time" id="syncTime">Never synced</p>
+          </div>
+        </div>
+        <div class="active-badge" id="activeCount" title="Active deadlines">0</div>
+      </header>
+
+      <!-- Competition groups -->
+      <div class="competition-list" id="competitionList" role="list"></div>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState" hidden>
+        <div class="empty-icon">📭</div>
+        <p class="empty-title">No competitions tracked yet.</p>
+        <p class="empty-subtitle">Open any Unstop competition you've registered for — it'll be tracked automatically. Or add one manually.</p>
+      </div>
+
+      <footer class="footer">
+        <button class="btn-add-new" id="addNewBtn">➕ Add New</button>
+        <span class="footer-count" id="footerCount">0 active</span>
+      </footer>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SCREEN 3 — MANUAL ADD FORM
+         ══════════════════════════════════════════════════════════ -->
+    <div id="screen-add" class="screen" hidden>
+
+      <header class="form-header">
+        <button class="btn-back" id="backBtn">← Back</button>
+        <h2 class="form-title">Add Competition</h2>
+      </header>
+
+      <div class="form-body">
+        <div class="field">
+          <label class="field-label">Competition Name <span class="req">*</span></label>
+          <input class="field-input" id="f-name" type="text" placeholder="e.g. Case Buddy System 2.0" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Host / Organiser</label>
+          <input class="field-input" id="f-host" type="text" placeholder="e.g. CoC SRCC" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Competition URL</label>
+          <input class="field-input" id="f-url" type="url" placeholder="https://unstop.com/..." autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Rounds</label>
+          <div id="deadlines-list" class="deadlines-list"></div>
+          <button class="btn-add-deadline" id="addDeadlineBtn">+ Add Round</button>
+        </div>
+      </div>
+
+      <footer class="form-footer">
+        <p class="form-error" id="formError"></p>
+        <button class="btn-primary wide" id="saveBtn">Save Competition</button>
+      </footer>
+
+    </div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
