@@ -56,37 +56,39 @@ function bindOnboarding() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 let tickInterval = null;
+let storageListenerBound = false;
 
 function bindMain() {
-  // Quick links
-  document.getElementById('qlUnstop').addEventListener('click', () => {
+  // Use onclick to prevent duplicate listeners on re-entry
+  document.getElementById('qlUnstop').onclick = () => {
     chrome.tabs.create({ url: 'https://unstop.com' });
     window.close();
-  });
-  document.getElementById('qlRegistrations').addEventListener('click', () => {
+  };
+  document.getElementById('qlRegistrations').onclick = () => {
     chrome.tabs.create({ url: 'https://unstop.com/user/registrations/all/all' });
     window.close();
-  });
-
-  // Add New button
-  document.getElementById('addNewBtn').addEventListener('click', () => {
+  };
+  document.getElementById('addNewBtn').onclick = () => {
     showScreen('screen-add');
     bindAddForm('screen-main');
     addDeadlineRow();
-  });
+  };
 
   // Live countdown tick
   if (tickInterval) clearInterval(tickInterval);
   tickInterval = setInterval(tick, 1000);
 
-  // Re-render when storage changes (content.js may have written new data)
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && (changes.competitions || changes.lastSynced)) {
-      chrome.storage.local.get(['competitions', 'lastSynced'], ({ competitions = [], lastSynced }) => {
-        renderMain(competitions, lastSynced);
-      });
-    }
-  });
+  // Re-render when storage changes — bind only once
+  if (!storageListenerBound) {
+    storageListenerBound = true;
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && (changes.competitions || changes.lastSynced)) {
+        chrome.storage.local.get(['competitions', 'lastSynced'], ({ competitions = [], lastSynced }) => {
+          renderMain(competitions, lastSynced);
+        });
+      }
+    });
+  }
 }
 
 // ── Render main list ───────────────────────────────────────────────────────────
@@ -214,7 +216,13 @@ function tick() {
   const now = Date.now();
   document.querySelectorAll('.deadline-row').forEach(row => {
     const ms = new Date(row.dataset.datetime).getTime() - now;
-    if (ms <= 0) { row.closest('.comp-group')?.remove(); return; }
+    if (ms <= 0) {
+      const group = row.closest('.comp-group');
+      row.remove();
+      // Only remove the group if it has no remaining deadline rows
+      if (group && group.querySelectorAll('.deadline-row').length === 0) group.remove();
+      return;
+    }
 
     const urgency = getUrgency(ms);
     const label   = LABELS[urgency];

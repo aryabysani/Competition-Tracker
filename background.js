@@ -14,6 +14,7 @@ const ALARM_PREFIX = 'comp_';
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[Competition Tracker] Installed');
   refreshAlarms();
+  updateBadge();
 });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -23,6 +24,7 @@ chrome.runtime.onStartup.addListener(() => {
 
 // ─── Storage Change Listener ─────────────────────────────────────────────────
 // Keeps badge + alarms in sync whenever competitions are added or removed.
+// This covers all writes: content.js scrapes, manual adds, and deletions.
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.competitions) {
@@ -36,8 +38,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.action === 'scraped') {
     console.log(`[Competition Tracker] Received ${msg.count} competition(s) from content script`);
-    refreshAlarms();
-    updateBadge();
+    // storage.onChanged already handles refresh — just ack the message
     sendResponse({ ok: true });
     return true;
   }
@@ -68,11 +69,34 @@ chrome.alarms.onAlarm.addListener(alarm => {
     if (!n) return;
 
     chrome.notifications.create(`notif_${id}_${urgency}`, {
-      type: 'basic', iconUrl: 'icon128.png',
+      type: 'basic', iconUrl: chrome.runtime.getURL('icon128.png'),
       title: n.title, message: n.msg, priority: n.prio,
     });
   });
 });
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Returns the soonest upcoming deadline ms for any comp type (scraped or manual).
+function getSoonestDeadlineMs(comp, now) {
+  // Scraped comps store a pre-computed deadline string
+  if (comp.deadline) {
+    const ms = new Date(comp.deadline).getTime();
+    return !isNaN(ms) && ms > now ? ms : null;
+  }
+  // Manual comps store deadlines[] with start/end per round
+  if (comp.source === 'manual' && Array.isArray(comp.deadlines)) {
+    const times = comp.deadlines.flatMap(d => {
+      const candidates = [];
+      if (d.start) candidates.push(new Date(d.start).getTime());
+      if (d.end)   candidates.push(new Date(d.end).getTime());
+      if (d.datetime) candidates.push(new Date(d.datetime).getTime());
+      return candidates.filter(t => !isNaN(t) && t > now);
+    });
+    return times.length > 0 ? Math.min(...times) : null;
+  }
+  return null;
+}
 
 // ─── Alarm Management ─────────────────────────────────────────────────────────
 
@@ -87,9 +111,8 @@ async function refreshAlarms() {
 
   let created = 0;
   for (const comp of competitions) {
-    if (!comp.deadline) continue;
-    const deadlineMs = new Date(comp.deadline).getTime();
-    if (isNaN(deadlineMs) || deadlineMs <= now) continue;
+    const deadlineMs = getSoonestDeadlineMs(comp, now);
+    if (!deadlineMs) continue;
 
     for (const [label, offset] of [['48h', 48 * 3600000], ['24h', 24 * 3600000], ['1h', 3600000]]) {
       const at = deadlineMs - offset;
@@ -111,22 +134,21 @@ async function updateBadge() {
   const { competitions = [] } = await chrome.storage.local.get(['competitions']);
   const now = Date.now();
 
-  const active = competitions.filter(c => {
-    if (!c.deadline) return false;
-    return new Date(c.deadline).getTime() > now;
-  });
+  const activeTimes = competitions
+    .map(c => getSoonestDeadlineMs(c, now))
+    .filter(Boolean);
 
-  if (active.length === 0) {
+  if (activeTimes.length === 0) {
     await chrome.action.setBadgeText({ text: '' });
     return;
   }
 
-  const minLeft = Math.min(...active.map(c => new Date(c.deadline).getTime() - now));
+  const minLeft = Math.min(...activeTimes) - now;
   const colour  =
     minLeft <= 48 * 3_600_000 ? '#ff3b3b' :
     minLeft <= 72 * 3_600_000 ? '#ff8c00' :
                                 '#764ba2';
 
-  await chrome.action.setBadgeText({ text: String(active.length) });
+  await chrome.action.setBadgeText({ text: String(activeTimes.length) });
   await chrome.action.setBadgeBackgroundColor({ color: colour });
 }
